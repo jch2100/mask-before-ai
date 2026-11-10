@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 이 화면이 인터넷으로 무엇이든 보내거나 받아 오는 것을 브라우저가 막게 하는 선언입니다. 지우지 마세요. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>AI에 넣기 전 가림 도구</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--line:#dcdad2;--text:#1f1f1c;--sub:#5d5c57;--mute:#8a8983;--accent:#185fa5;--ok-bg:#eaf3de;--ok:#27500a;--warn-bg:#faeeda;--warn:#633806;--bad-bg:#fcebeb;--bad:#791f1f;--code:#f1efe8}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1b1a;--card:#262624;--line:#3d3d3a;--text:#f1efe8;--sub:#b4b2a9;--mute:#888780;--accent:#85b7eb;--ok-bg:#173404;--ok:#c0dd97;--warn-bg:#412402;--warn:#fac775;--bad-bg:#501313;--bad:#f7c1c1;--code:#2c2c2a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Pretendard","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;font-size:15px;line-height:1.65}
+main{max-width:860px;margin:0 auto;padding:24px 16px 60px}
+section,header{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:14px}
+h1{font-size:20px;margin:0;font-weight:600}
+h2{font-size:16px;margin:0 0 10px;font-weight:600}
+h3{font-size:15px;margin:18px 0 6px;font-weight:600}
+#rOut{margin-top:12px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+#rules{margin:10px 0 0;padding-left:22px;color:var(--sub)}
+.badge{display:inline-block;font-size:12px;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.ok{background:var(--ok-bg);color:var(--ok)}.warn{background:var(--warn-bg);color:var(--warn)}.bad{background:var(--bad-bg);color:var(--bad)}.none{background:var(--code);color:var(--sub)}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:22px;text-align:center;color:var(--sub)}
+.drop.over{border-color:var(--accent);background:var(--code)}
+.btns{margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+button{font:inherit;font-size:14px;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.main{background:var(--accent);border-color:var(--accent);color:var(--card);font-weight:600}
+input[type=password]{font:inherit;font-size:14px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);width:180px}
+textarea{width:100%;min-height:110px;font:inherit;font-size:14px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text)}
+details{margin-top:12px}summary{cursor:pointer;color:var(--sub)}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal;word-break:break-all}
+th{color:var(--mute);font-weight:400;font-size:13px}
+tr.sel td{background:var(--code)}
+td button{border:0;background:none;padding:0;color:var(--accent);text-align:left;font-size:14px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin:10px 0}
+.cols label{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;display:block;cursor:pointer}
+.cols small{display:block;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pv{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin:10px 0}
+.pv div{background:var(--code);border-radius:8px;padding:10px;font-family:Consolas,monospace;font-size:12.5px;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.pv b{display:block;font-family:inherit;font-weight:400;color:var(--mute);margin-bottom:4px}
+.act{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.note{color:var(--sub);font-size:13.5px}
+.check{margin:8px 0;font-size:14px}
+#steps{list-style:none;padding:0;margin:0}
+#steps li{padding:9px 0;border-bottom:1px solid var(--line)}
+#steps li:last-child{border-bottom:0}
+#steps label{display:flex;gap:10px;cursor:pointer}
+#steps small{display:block;color:var(--sub)}
+footer{color:var(--mute);font-size:13px;padding:0 4px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="top"><h1 id="company"></h1><span class="badge ok">이 화면은 인터넷 연결이 막혀 있습니다</span></div>
+  <p class="note" style="margin:8px 0 0">민감정보를 번호로 바꿔 AI에 주고, AI가 준 결과는 다시 실제 정보로 되돌립니다.</p>
+</header>
+
+<section id="lockSec">
+  <h2 id="lockTitle"></h2>
+  <p id="lockDesc" class="note"></p>
+  <div class="act">
+    <input type="password" id="pw1" placeholder="암호" autocomplete="off">
+    <input type="password" id="pw2" placeholder="암호 다시 입력" autocomplete="off">
+    <button id="pwGo" type="button" class="main"></button>
+    <button id="pwReset" type="button">암호를 잊었습니다</button>
+  </div>
+  <p id="pwMsg" class="note"></p>
+</section>
+
+<div id="app" hidden>
+<section>
+  <h2>1. 자료 넣기</h2>
+  <div id="drop" class="drop">
+    파일이나 폴더를 여기에 끌어다 놓으세요
+    <div class="btns">
+      <button id="pickFile" type="button">파일 선택</button>
+      <button id="pickDir" type="button">폴더 선택</button>
+    </div>
+  </div>
+  <input type="file" id="fileIn" multiple hidden>
+  <input type="file" id="dirIn" webkitdirectory multiple hidden>
+  <details>
+    <summary>글을 직접 붙여넣기</summary>
+    <textarea id="paste" placeholder="여기에 글을 붙여넣으세요"></textarea>
+    <div class="act"><button id="pasteGo" type="button">이 글 검사하기</button><span id="pasteMsg" class="note"></span></div>
+  </details>
+  <p class="note">읽을 수 있는 형식: CSV, TXT, MD. 넣은 자료는 이 컴퓨터 밖으로 나가지 않습니다.</p>
+</section>
+
+<section id="resSec" hidden>
+  <h2>검사 결과</h2>
+  <p id="resSum" class="note"></p>
+  <div class="tablewrap"><table id="resTable"></table></div>
+</section>
+
+<section id="detSec" hidden>
+  <h2>번호로 바꾸기 · <span id="detName"></span></h2>
+  <div id="detBody"></div>
+</section>
+
+<section>
+  <h2>2. 바꾼 기록</h2>
+  <p>"김하늘 ↔ 고객_0001"처럼, 무엇을 어떤 번호로 바꿨는지 이 도구가 적어 둔 목록입니다. 되돌리기는 이 목록을 보고 번호를 실제 정보로 바꿉니다.</p>
+  <p id="dictSum" class="note"></p>
+  <details><summary>바꾼 기록 보기</summary><div class="tablewrap"><table id="dictTable"></table></div></details>
+  <div class="act">
+    <button id="dictExport" type="button">바꾼 기록 내보내기</button>
+    <button id="dictImport" type="button">바꾼 기록 가져오기</button>
+    <button id="dictClear" type="button">바꾼 기록 모두 지우기</button>
+    <button id="lockNow" type="button">잠그기</button>
+    <input type="file" id="dictIn" accept=".json" hidden>
+  </div>
+  <p id="dictMsg" class="note"></p>
+  <p class="note">저장되는 곳: 이 컴퓨터의 브라우저 안쪽 저장 공간입니다. 이 도구 파일이나 AI 작업 폴더 안에는 저장되지 않으며, 암호로 잠근 상태로 저장됩니다. 화면을 열어 둔 동안에는 기록이 보이므로, 자리를 비울 때는 "잠그기"를 누르거나 창을 닫으세요.</p>
+  <p class="note">브라우저 기록을 지우거나 다른 컴퓨터로 옮기면 사라지므로, 그 전에 내보내 두세요. 내보낸 파일도 같은 암호로 잠겨 있어서, 가져올 때 같은 암호가 필요합니다.</p>
+</section>
+
+<section>
+  <h2>3. 원상 복귀</h2>
+  <p>AI가 준 결과를 넣으면, 번호가 있던 자리를 실제 정보로 되돌립니다. AI가 고치거나 새로 넣은 다른 내용은 그대로 남습니다.</p>
+  <div id="rDrop" class="drop">
+    AI가 준 결과 파일을 여기에 끌어다 놓으세요
+    <div class="btns"><button id="rPick" type="button">파일 선택</button></div>
+  </div>
+  <input type="file" id="rIn" hidden>
+  <details open>
+    <summary>AI가 준 글을 직접 붙여넣기</summary>
+    <textarea id="rPaste" placeholder="AI가 준 답을 여기에 붙여넣으세요"></textarea>
+    <div class="act"><button id="rGo" type="button">되돌리기</button><span id="rMsg" class="note"></span></div>
+  </details>
+  <div id="rOut"></div>
+</section>
+
+<section>
+  <h2>4. 보안 규칙</h2>
+  <ol id="rules"></ol>
+  <h3>다음에 할 일</h3>
+  <p class="note">이 도구는 첫 번째 안전장치입니다. 아래를 차례로 해 나가세요. 표시한 내용은 이 브라우저에 기억됩니다.</p>
+  <ul id="steps"></ul>
+</section>
+</div>
+
+<footer>
+  찾은 것만 바꿉니다. 처음 보는 이름, 주소, 한글·엑셀·PDF 파일 속 내용은 찾지 못합니다. "후보 없음"은 "없다"가 아니라 "찾지 못했다"는 뜻입니다. 이름을 번호로 바꾼 자료도 개인정보로 다뤄야 하며, 회사 기준이 우선합니다. 원본 파일은 바뀌지 않습니다.
+</footer>
+</main>
+
+<script>
+// ===================================================================
+// 회사에 맞게 고치는 곳 — 이 구역만 바꾸면 됩니다
+// ===================================================================
+const COMPANY = '우리 회사 · AI에 넣기 전 가림 도구';
+
+const RULES = [
+  '고객 이름과 연락처는 AI에 그대로 넣지 않는다',
+  '원본 자료는 AI 작업 폴더 밖에 둔다',
+  '외부에 공개하기 전에 담당자가 확인한다'
+];
+
+// 찾아서 번호로 바꿀 형식. 한 줄을 추가하면 검사 항목이 하나 늘어납니다.
+// name: 화면에 보일 이름 / prefix: 바꾼 번호의 앞글자 / re: 찾는 형식
+const PATTERNS = [
+  { name: '주민번호', prefix: '주민', re: /(?<!\d)\d{6}[-\s]?[1-4]\d{6}(?!\d)/g },
+  { name: '전화',     prefix: '전화', re: /(?<!\d)(?:01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}|0(?:2|[3-6]\d)[-.\s]\d{3,4}[-.\s]\d{4})(?!\d)/g },
+  { name: '이메일',   prefix: '메일', re: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g }
+];
+
+// 표(CSV)에서 이 글자가 들어간 열은 이름 열로 보고 자동으로 선택합니다.
+const NAME_HEADERS = /이름|성명|고객명|담당자|대표자/;
+
+const NEXT_STEPS = [
+  ['원본과 이 도구를 AI 작업 폴더 밖으로 옮긴다', 'AI가 원본을 직접 읽을 수 있으면 가린 사본은 의미가 없습니다.'],
+  ['AI에 넣지 않을 자료 목록을 정한다', '고객정보뿐 아니라 단가, 계약 조건, 인사 자료처럼 이 도구가 찾지 못하는 것도 적습니다.'],
+  ['쓰고 있는 AI 서비스의 설정을 확인한다', '입력한 내용이 학습에 쓰이는지, 회사 계정인지 개인 계정인지 확인합니다.'],
+  ['직원에게 이 도구와 규칙을 전달한다', '파일 하나와 위의 규칙 세 줄을 함께 전달합니다.'],
+  ['만든 웹사이트와 프로그램을 공개 전에 점검한다', '비밀 키가 들어 있지 않은지, 누구나 볼 수 있는 상태가 아닌지 확인합니다.'],
+  ['담당자와 사고 때 연락 순서를 정한다', '회사 전체 차원의 보안 제품은 전산 담당자와 검토합니다.']
+];
+// ===================================================================
+
+const AI_NOTE = '이 자료의 고객_0001, 전화_0001 같은 번호는 실제 정보를 가린 표시입니다. 번호의 모양을 바꾸지 말고 그대로 써 주세요.';
+const SUPPORTED = ['csv', 'txt', 'md'];
+const MAX_FILES = 300;
+const MAX_BYTES = 5 * 1024 * 1024;
+const DICT_KEY = 'pg_dict_v2';
+const STEPS_KEY = 'pg_steps_v1';
+const NAME_PREFIX = '고객';
+const OTHER_PREFIX = '항목';
+const PREFIXES = [...new Set([NAME_PREFIX, OTHER_PREFIX, ...PATTERNS.map(p => p.prefix)])];
+const CODE_RE = new RegExp('(' + PREFIXES.map(esc).join('|') + ')(?:\\\\?_| )?(\\d{4})(?!\\d)', 'g');
+
+const $ = id => document.getElementById(id);
+const v2c = new Map();
+const c2v = new Map();
+const counters = {};
+let storageOk = true;
+let items = [];
+let selected = -1;
+
+function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function el(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  Object.assign(e, props || {});
+  for (const k of kids) e.append(k);
+  return e;
+}
+
+// ---------- dictionary ----------
+function addPair(value, code) {
+  v2c.set(value, code);
+  c2v.set(code, value);
+  const m = /^(.*)_(\d{4})$/.exec(code);
+  if (m) counters[m[1]] = Math.max(counters[m[1]] || 0, Number(m[2]));
+}
+// The record is stored only in encrypted form (AES-GCM, key derived from the password).
+let key = null, salt = null, password = null, saveChain = Promise.resolve();
+function b64(u8) { let s = ''; for (const b of u8) s += String.fromCharCode(b); return btoa(s); }
+function unb64(s) { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
+async function deriveKey(pw, saltBytes) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: saltBytes, iterations: 200000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function seal() {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify([...v2c])));
+  return JSON.stringify({ version: 2, salt: b64(salt), iv: b64(iv), data: b64(new Uint8Array(data)) });
+}
+async function openSealed(text, pw) {
+  const o = JSON.parse(text), s = unb64(o.salt), k = await deriveKey(pw, s);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(o.iv) }, k, unb64(o.data));
+  return { pairs: JSON.parse(new TextDecoder().decode(plain)), key: k, salt: s };
+}
+function stored() {
+  try { return localStorage.getItem(DICT_KEY); } catch (e) { storageOk = false; return null; }
+}
+function saveDict() {
+  renderDict();
+  saveChain = saveChain.then(async () => {
+    try { localStorage.setItem(DICT_KEY, await seal()); } catch (e) { storageOk = false; renderDict(); }
+  });
+  return saveChain;
+}
+function codeFor(value, prefix) {
+  value = value.trim();
+  if (v2c.has(value)) return v2c.get(value);
+  const n = (counters[prefix] || 0) + 1;
+  const code = prefix + '_' + String(n).padStart(4, '0');
+  addPair(value, code);
+  return code;
+}
+function nameRegex() {
+  const names = [...v2c].filter(([v, c]) => c.startsWith(NAME_PREFIX + '_') && v.length >= 2).map(([v]) => v);
+  if (!names.length) return null;
+  names.sort((a, b) => b.length - a.length);
+  return new RegExp(names.map(esc).join('|'), 'g');
+}
+
+// ---------- reading ----------
+function decode(buf) {
+  let t;
+  try { t = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+  catch (e) { t = new TextDecoder('euc-kr').decode(buf); }
+  return t.replace(/^﻿/, '');
+}
+function parseCSV(t) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (q) {
+      if (ch === '"') { if (t[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+    else if (ch !== '\r') cell += ch;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+function toCSV(rows) {
+  return rows.map(r => r.map(c => /[",\n\r]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c).join(',')).join('\r\n') + '\r\n';
+}
+
+// ---------- check ----------
+function scan(text) {
+  const counts = PATTERNS.map(p => (text.match(p.re) || []).length);
+  const nre = nameRegex();
+  const names = nre ? (text.match(nre) || []).length : 0;
+  let codes = 0;
+  text.replace(CODE_RE, (m, p, d) => { if (c2v.has(p + '_' + d)) codes++; return m; });
+  return { counts, names, codes, sensitive: counts.reduce((a, b) => a + b, 0) + names };
+}
+function analyze(it) {
+  if (it.text == null) return;
+  it.scan = scan(it.text);
+  if (it.ext === 'csv') {
+    it.rows = parseCSV(it.text);
+    const head = it.rows[0] || [];
+    if (!it.cols) it.cols = head.map(h => NAME_HEADERS.test(h));
+  }
+  const hasNameCol = it.cols && it.cols.some(Boolean);
+  it.status = it.scan.codes ? ['되돌릴 번호 있음', 'ok']
+    : (it.scan.sensitive || hasNameCol) ? ['바꿀 것 있음', 'warn']
+    : ['후보 없음', 'none'];
+}
+
+// ---------- convert / restore ----------
+function replaceInText(s, nre) {
+  for (const p of PATTERNS) s = s.replace(p.re, m => codeFor(m, p.prefix));
+  if (nre) s = s.replace(nre, m => v2c.get(m));
+  return s;
+}
+function columnPrefix(header, cell) {
+  if (NAME_HEADERS.test(header)) return NAME_PREFIX;
+  const p = PATTERNS.find(p => new RegExp('^(?:' + p.re.source + ')$').test(cell.trim()));
+  return p ? p.prefix : OTHER_PREFIX;
+}
+function convert(it) {
+  let out;
+  if (it.ext === 'csv') {
+    const rows = it.rows.map(r => r.slice());
+    const head = rows[0] || [];
+    for (let r = 1; r < rows.length; r++)
+      for (let c = 0; c < rows[r].length; c++)
+        if (it.cols[c] && rows[r][c].trim())
+          rows[r][c] = codeFor(rows[r][c], columnPrefix(head[c] || '', rows[r][c]));
+    const nre = nameRegex();
+    for (let r = 1; r < rows.length; r++)
+      for (let c = 0; c < rows[r].length; c++)
+        if (!it.cols[c]) rows[r][c] = replaceInText(rows[r][c], nre);
+    out = toCSV(rows);
+  } else {
+    out = replaceInText(it.text, nameRegex());
+  }
+  saveDict();
+  return out;
+}
+function restore(text) {
+  let done = 0, unknown = 0;
+  const out = text.replace(CODE_RE, (m, p, d) => {
+    const code = p + '_' + d;
+    if (c2v.has(code)) { done++; return c2v.get(code); }
+    if (m === code) unknown++;
+    return m;
+  });
+  return { out, done, unknown };
+}
+function numericSums(text) {
+  const rows = parseCSV(text), sums = {};
+  const head = rows[0] || [];
+  head.forEach((h, c) => {
+    let sum = 0, any = false;
+    for (let r = 1; r < rows.length; r++) {
+      const v = (rows[r][c] || '').replace(/,/g, '').trim();
+      if (v === '') continue;
+      if (!/^-?\d+(\.\d+)?$/.test(v)) return;
+      sum += Number(v); any = true;
+    }
+    if (any) sums[h] = Math.round(sum * 100) / 100;
+  });
+  return sums;
+}
+function lineCount(t) { return t.split('\n').filter(l => l.trim() !== '').length; }
+
+// ---------- download ----------
+function download(name, text, bom) {
+  const blob = new Blob([(bom ? '﻿' : '') + text], { type: 'text/plain;charset=utf-8' });
+  const a = el('a', { href: URL.createObjectURL(blob), download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function copyText(text) {
+  const ta = el('textarea', { value: text });
+  document.body.append(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) {}
+  ta.remove();
+  return ok;
+}
+function outName(it, tag) {
+  const i = it.name.lastIndexOf('.');
+  const base = (i > 0 ? it.name.slice(0, i) : it.name).split(/[\\/]/).pop();
+  return base + '_' + tag + '.' + (it.ext || 'txt');
+}
+
+// ---------- intake ----------
+async function addFiles(files) {
+  const list = [...files];
+  const skipped = Math.max(0, list.length - MAX_FILES);
+  items = [];
+  for (const f of list.slice(0, MAX_FILES)) {
+    const name = f.webkitRelativePath || f._path || f.name;
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    const it = { name, ext, text: null };
+    if (!SUPPORTED.includes(ext)) it.status = ['검사 못 함 · 지원 안 하는 형식', 'none'];
+    else if (f.size > MAX_BYTES) it.status = ['검사 못 함 · 5MB 초과', 'none'];
+    else {
+      try { it.text = decode(await f.arrayBuffer()); analyze(it); }
+      catch (e) { it.status = ['검사 못 함 · 읽기 실패', 'none']; }
+    }
+    items.push(it);
+  }
+  selected = -1;
+  renderResults(skipped);
+  const first = items.findIndex(it => it.text != null);
+  if (items.length === 1 && first === 0) select(0); else { $('detSec').hidden = true; }
+}
+function addText(text) {
+  const it = { name: '붙여넣은 글', ext: 'txt', text, pasted: true };
+  analyze(it);
+  items = [it]; selected = -1;
+  renderResults(0); select(0);
+}
+function entryFiles(entry, path) {
+  return new Promise(res => {
+    if (entry.isFile) entry.file(f => { f._path = path + f.name; res([f]); }, () => res([]));
+    else if (entry.isDirectory) {
+      const reader = entry.createReader(); const all = [];
+      const read = () => reader.readEntries(async ents => {
+        if (!ents.length) return res(all);
+        for (const e of ents) all.push(...await entryFiles(e, path + entry.name + '/'));
+        read();
+      }, () => res(all));
+      read();
+    } else res([]);
+  });
+}
+
+// ---------- render ----------
+function renderResults(skipped) {
+  $('resSec').hidden = false;
+  const unread = items.filter(it => it.text == null).length;
+  $('resSum').textContent = '파일 ' + items.length + '개 중 ' + (items.length - unread) + '개를 검사했습니다.'
+    + (unread ? ' ' + unread + '개는 검사하지 못했습니다. 검사하지 못한 파일은 안전하다는 뜻이 아닙니다.' : '')
+    + (skipped ? ' ' + skipped + '개는 한 번에 볼 수 있는 수(' + MAX_FILES + '개)를 넘어 건너뛰었습니다.' : '');
+  const t = $('resTable'); t.textContent = '';
+  const hr = el('tr');
+  for (const h of ['파일', ...PATTERNS.map(p => p.name), '등록된 이름', '바꾼 번호', '상태']) hr.append(el('th', { textContent: h }));
+  t.append(hr);
+  items.forEach((it, i) => {
+    const tr = el('tr', { className: i === selected ? 'sel' : '' });
+    const first = el('td');
+    if (it.text != null) first.append(el('button', { type: 'button', textContent: it.name, onclick: () => select(i) }));
+    else first.textContent = it.name;
+    tr.append(first);
+    const s = it.scan;
+    for (const n of s ? [...s.counts, s.names, s.codes] : [...PATTERNS.map(() => '–'), '–', '–']) tr.append(el('td', { textContent: n }));
+    const st = el('td'); st.append(el('span', { className: 'badge ' + it.status[1], textContent: it.status[0] }));
+    tr.append(st); t.append(tr);
+  });
+}
+function select(i) {
+  selected = i;
+  renderResults(0);
+  const it = items[i];
+  $('detSec').hidden = false;
+  $('detName').textContent = it.name;
+  const body = $('detBody'); body.textContent = '';
+  const s = it.scan;
+  const parts = PATTERNS.map((p, k) => p.name + ' ' + s.counts[k] + '건');
+  parts.push('등록된 이름 ' + s.names + '건', '바꾼 번호 ' + s.codes + '건');
+  body.append(el('p', { className: 'note', textContent: '찾은 것: ' + parts.join(' · ') }));
+
+  if (it.ext === 'csv' && it.rows.length) {
+    body.append(el('p', { textContent: '번호로 바꿀 열을 고르세요. 이름 열은 자동으로 골랐습니다. 전화·이메일·주민번호는 열을 고르지 않아도 바뀝니다.' }));
+    const box = el('div', { className: 'cols' });
+    it.rows[0].forEach((h, c) => {
+      const cb = el('input', { type: 'checkbox', checked: it.cols[c], onchange: () => { it.cols[c] = cb.checked; } });
+      const sample = (it.rows[1] || [])[c] || '';
+      const lab = el('label', {}, cb, ' ' + (h || '(이름 없는 열)'), el('small', { textContent: '예: ' + sample }));
+      box.append(lab);
+    });
+    body.append(box);
+  }
+
+  const act = el('div', { className: 'act' });
+  const result = el('div');
+  act.append(el('button', { type: 'button', className: 'main', textContent: '번호로 바꾸기', onclick: () => showConverted(it, result) }));
+  if (s.codes) body.append(el('p', { className: 'note', textContent: '이미 바꾼 번호가 들어 있는 자료입니다. 실제 정보로 되돌리려면 아래 "3. 원상 복귀"에 넣으세요.' }));
+  body.append(act, result);
+  $('detSec').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function preview(before, after, labelAfter) {
+  const cut = t => t.split('\n').slice(0, 7).join('\n');
+  const box = el('div', { className: 'pv' });
+  box.append(el('div', {}, el('b', { textContent: '넣은 자료' }), cut(before)), el('div', {}, el('b', { textContent: labelAfter }), cut(after)));
+  return box;
+}
+function outputBox(it, text, tag, isCsv) {
+  const act = el('div', { className: 'act' });
+  act.append(el('button', { type: 'button', className: 'main', textContent: outName(it, tag) + ' 내려받기', onclick: () => download(outName(it, tag), text, isCsv) }));
+  if (it.pasted) {
+    const ta = el('textarea', { value: text, readOnly: true });
+    const msg = el('span', { className: 'note' });
+    act.append(el('button', { type: 'button', textContent: '복사', onclick: () => { ta.select(); document.execCommand('copy'); msg.textContent = '복사했습니다'; } }), msg);
+    return [ta, act];
+  }
+  return [act];
+}
+function showConverted(it, box) {
+  box.textContent = '';
+  const out = convert(it);
+  const left = scan(out).sensitive;
+  let line = '줄 수 ' + lineCount(it.text) + ' → ' + lineCount(out);
+  let ok = lineCount(it.text) === lineCount(out) && left === 0;
+  if (it.ext === 'csv') {
+    const a = numericSums(it.text), b = numericSums(out);
+    const keys = Object.keys(b);
+    const same = keys.every(k => a[k] === b[k]);
+    if (keys.length) { line += ' · 숫자 열 합계 ' + (same ? '같음 (' + keys.map(k => k + ' ' + b[k].toLocaleString()).join(', ') + ')' : '다름'); ok = ok && same; }
+  }
+  line += ' · 남은 후보 ' + left + '건';
+  body_check(box, ok, line);
+  box.append(preview(it.text, out, 'AI에 줄 사본'), ...outputBox(it, out, 'AI용', it.ext === 'csv'));
+  const msg = el('span', { className: 'note' });
+  box.append(
+    el('p', { className: 'note', textContent: 'AI에 사본을 줄 때 아래 문장을 함께 붙이세요. 그래야 나중에 "3. 원상 복귀"에서 되돌릴 수 있습니다.' }),
+    el('div', { className: 'pv' }, el('div', { textContent: AI_NOTE })),
+    el('div', { className: 'act' }, el('button', { type: 'button', textContent: 'AI에 붙일 문장 복사', onclick: () => {
+      msg.textContent = copyText(AI_NOTE) ? '복사했습니다' : '복사하지 못했습니다. 위 문장을 직접 선택해 복사하세요';
+    } }), msg));
+}
+function showRestored(it, box) {
+  box.textContent = '';
+  const r = restore(it.text);
+  const line = (r.done ? r.done + '곳을 실제 정보로 바꿨습니다' : '되돌릴 번호를 찾지 못했습니다. 번호 모양이 바뀌었거나, 이 브라우저의 바꾼 기록에 없는 자료입니다')
+    + (r.unknown ? ' · 바꾼 기록에 없는 번호 ' + r.unknown + '곳은 그대로 두었습니다' : '');
+  body_check(box, r.done > 0 && r.unknown === 0, line);
+  if (!r.done) return;
+  box.append(preview(it.text, r.out, '되돌린 결과'), ...outputBox(it, r.out, '복원', it.ext === 'csv'));
+  box.append(el('p', { className: 'note', textContent: '번호가 있던 자리만 실제 정보로 바꿨습니다. AI가 고치거나 새로 넣은 다른 내용은 그대로 남아 있습니다. 되돌린 결과에는 실제 정보가 들어 있으니 AI 작업 폴더에 두지 마세요.' }));
+}
+function body_check(box, ok, line) {
+  const p = el('p', { className: 'check' });
+  p.append(el('span', { className: 'badge ' + (ok ? 'ok' : 'bad'), textContent: ok ? '확인됨' : '직접 확인 필요' }), ' ' + line);
+  box.append(p);
+}
+function renderDict() {
+  const byKind = {};
+  for (const c of c2v.keys()) { const k = c.split('_')[0]; byKind[k] = (byKind[k] || 0) + 1; }
+  const parts = Object.entries(byKind).map(([k, n]) => k + ' ' + n + '개');
+  $('dictSum').textContent = c2v.size ? '기억 중인 항목 ' + c2v.size + '개 (' + parts.join(', ') + ')' : '아직 기억한 항목이 없습니다.';
+  const t = $('dictTable'); t.textContent = '';
+  t.append(el('tr', {}, el('th', { textContent: '실제 정보' }), el('th', { textContent: '바꾼 번호' })));
+  for (const [v, c] of [...v2c].slice(0, 200)) t.append(el('tr', {}, el('td', { textContent: v }), el('td', { textContent: c })));
+  if (v2c.size > 200) t.append(el('tr', {}, el('td', { textContent: '… 외 ' + (v2c.size - 200) + '개' }), el('td')));
+  if (!storageOk) $('dictMsg').textContent = '이 브라우저는 바꾼 기록을 저장하지 못합니다. 창을 닫기 전에 반드시 바꾼 기록을 내보내세요.';
+}
+function renderSteps() {
+  let done = [];
+  try { done = JSON.parse(localStorage.getItem(STEPS_KEY) || '[]'); } catch (e) {}
+  const ul = $('steps'); ul.textContent = '';
+  NEXT_STEPS.forEach(([title, why], i) => {
+    const cb = el('input', { type: 'checkbox', checked: !!done[i], onchange: () => {
+      done[i] = cb.checked;
+      try { localStorage.setItem(STEPS_KEY, JSON.stringify(done)); } catch (e) {}
+    } });
+    ul.append(el('li', {}, el('label', {}, cb, el('span', {}, (i + 1) + '. ' + title, el('small', { textContent: why })))));
+  });
+}
+
+// ---------- wiring ----------
+$('company').textContent = COMPANY;
+for (const r of RULES) $('rules').append(el('li', { textContent: r }));
+$('pickFile').onclick = () => $('fileIn').click();
+$('pickDir').onclick = () => $('dirIn').click();
+$('fileIn').onchange = e => { addFiles(e.target.files); e.target.value = ''; };
+$('dirIn').onchange = e => { addFiles(e.target.files); e.target.value = ''; };
+$('pasteGo').onclick = () => {
+  const t = $('paste').value;
+  if (!t.trim()) { $('pasteMsg').textContent = '먼저 글을 붙여넣으세요'; return; }
+  $('pasteMsg').textContent = ''; addText(t);
+};
+$('paste').oninput = () => { $('pasteMsg').textContent = ''; };
+const drop = $('drop');
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = async e => {
+  e.preventDefault(); drop.classList.remove('over');
+  const entries = [...e.dataTransfer.items].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (entries.length) { const all = []; for (const en of entries) all.push(...await entryFiles(en, '')); addFiles(all); }
+  else addFiles(e.dataTransfer.files);
+};
+$('dictExport').onclick = async () => {
+  if (!v2c.size) { $('dictMsg').textContent = '내보낼 항목이 없습니다.'; return; }
+  const d = new Date(), pad = n => String(n).padStart(2, '0');
+  download('바꾼기록_' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '.json', await seal(), false);
+  $('dictMsg').textContent = '바꾼 기록을 암호로 잠근 파일로 내보냈습니다. 가져올 때 지금 암호가 필요합니다.';
+};
+$('dictImport').onclick = () => $('dictIn').click();
+$('dictIn').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    let added = 0, clash = 0;
+    for (const [v, c] of (await openSealed(decode(await f.arrayBuffer()), password)).pairs) {
+      if (v2c.get(v) === c) continue;
+      if (v2c.has(v) || c2v.has(c)) { clash++; continue; }
+      addPair(v, c); added++;
+    }
+    saveDict();
+    $('dictMsg').textContent = added + '개를 가져왔습니다.' + (clash ? ' 이미 다른 값으로 쓰이는 ' + clash + '개는 건너뛰었습니다.' : '');
+  } catch (err) { $('dictMsg').textContent = '가져오지 못했습니다. 바꾼 기록 파일이 아니거나, 그 파일을 내보낼 때의 암호가 지금 암호와 다릅니다.'; }
+};
+$('dictClear').onclick = () => {
+  if (!v2c.size) return;
+  if (!confirm('바꾼 기록을 모두 지우면 이미 바꾼 자료를 되돌릴 수 없습니다. 지울까요?')) return;
+  v2c.clear(); c2v.clear(); for (const k in counters) delete counters[k];
+  saveDict(); $('dictMsg').textContent = '바꾼 기록을 지웠습니다.';
+};
+async function restoreFile(f) {
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  $('rOut').textContent = '';
+  if (!SUPPORTED.includes(ext)) { $('rMsg').textContent = 'CSV, TXT, MD 파일만 되돌릴 수 있습니다.'; return; }
+  $('rMsg').textContent = '';
+  showRestored({ name: f.name, ext, text: decode(await f.arrayBuffer()) }, $('rOut'));
+}
+$('rPick').onclick = () => $('rIn').click();
+$('rIn').onchange = e => { if (e.target.files[0]) restoreFile(e.target.files[0]); e.target.value = ''; };
+const rDrop = $('rDrop');
+rDrop.ondragover = e => { e.preventDefault(); rDrop.classList.add('over'); };
+rDrop.ondragleave = () => rDrop.classList.remove('over');
+rDrop.ondrop = e => { e.preventDefault(); rDrop.classList.remove('over'); if (e.dataTransfer.files[0]) restoreFile(e.dataTransfer.files[0]); };
+$('rGo').onclick = () => {
+  const t = $('rPaste').value;
+  if (!t.trim()) { $('rMsg').textContent = '먼저 AI가 준 글을 붙여넣으세요'; return; }
+  $('rMsg').textContent = '';
+  showRestored({ name: '붙여넣은 글', ext: 'txt', text: t, pasted: true }, $('rOut'));
+};
+$('rPaste').oninput = () => { $('rMsg').textContent = ''; };
+// ---------- lock ----------
+function renderLock() {
+  const has = !!stored();
+  $('lockTitle').textContent = has ? '암호를 입력하세요' : '처음 사용: 암호를 정하세요';
+  $('lockDesc').textContent = has
+    ? '바꾼 기록이 암호로 잠겨 있습니다. 암호를 넣어야 도구를 쓸 수 있습니다.'
+    : '바꾼 기록을 잠글 암호를 정합니다. 암호를 잊으면 바꾼 기록을 다시 열 수 없고, 이미 바꾼 자료도 되돌릴 수 없습니다. 원본을 보관하는 곳에 함께 적어 두세요.';
+  $('pw2').hidden = has; $('pwReset').hidden = !has;
+  $('pwGo').textContent = has ? '열기' : '암호 정하기';
+}
+$('pwGo').onclick = async () => {
+  const pw = $('pw1').value, has = stored(), say = t => { $('pwMsg').textContent = t; };
+  if (!window.crypto || !crypto.subtle) return say('이 브라우저에서는 잠금 기능을 쓸 수 없습니다. 크롬이나 엣지 최신판으로 열어 주세요.');
+  if (has) {
+    try {
+      const r = await openSealed(has, pw);
+      for (const [v, c] of r.pairs) addPair(v, c);
+      key = r.key; salt = r.salt;
+    } catch (e) { return say('암호가 맞지 않습니다.'); }
+  } else {
+    if (pw.length < 4) return say('암호는 4글자 이상으로 정하세요.');
+    if (pw !== $('pw2').value) return say('두 암호가 서로 다릅니다.');
+    salt = crypto.getRandomValues(new Uint8Array(16));
+    key = await deriveKey(pw, salt);
+    await saveDict();
+  }
+  password = pw; $('pw1').value = $('pw2').value = ''; say('');
+  $('lockSec').hidden = true; $('app').hidden = false;
+  renderDict(); renderSteps();
+};
+for (const id of ['pw1', 'pw2']) $(id).onkeydown = e => { if (e.key === 'Enter') $('pwGo').click(); };
+$('pwReset').onclick = () => {
+  if (!confirm('암호 없이는 바꾼 기록을 열 수 없습니다. 바꾼 기록을 모두 지우고 새로 시작할까요? 이미 번호로 바꾼 자료는 되돌릴 수 없게 됩니다.')) return;
+  try { localStorage.removeItem(DICT_KEY); } catch (e) {}
+  $('pwMsg').textContent = ''; renderLock();
+};
+$('lockNow').onclick = async () => { await saveChain; location.reload(); };
+try { localStorage.removeItem('pg_dict_v1'); } catch (e) {}
+renderLock();
+</script>
+</body>
+</html>
